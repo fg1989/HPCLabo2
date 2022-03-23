@@ -16,7 +16,7 @@
 #define IPV4_SRV "127.0.0.1"
 #define PORT 12345
 
-#ifndef FILE_SIZE 
+#ifndef FILE_SIZE
 #define FILE_SIZE (1 << 30) /* 1 GB */
 #endif
 

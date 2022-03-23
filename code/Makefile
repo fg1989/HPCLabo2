@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 TARGET = main
-FILE_SIZE = 1024 # 1KB
+FILE_SIZE = 32768
 
 SRV_FILE=srv_data.bin
 CLIENT_FILE=client_data.bin

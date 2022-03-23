@@ -14,47 +14,42 @@
 #define CLIENT_FILE "client_data.bin"
 #endif
 
-#ifndef FILE_SIZE 
+#ifndef FILE_SIZE
 #define FILE_SIZE (1 << 30) /* 1 GB */
 #endif
 
 static void client_recv(const int sock, const int file)
 {
     int ret;
-    uint8_t buf;
+    char buf[1024];
+    int wr;
+    int total = 0;
 
-    for (size_t i = 0; i < FILE_SIZE; i++) {
+    while (true)
+    {
         /* receive from server */
-        if ((ret = recv(sock, &buf, 1, 0)) < 0) {
+        if ((ret = recv(sock, buf, 1024, 0)) < 0)
+        {
             perror("recv() error");
             exit(EXIT_FAILURE);
         }
 
-        if (ret < 0) {
-            perror("listen() error");
-            exit(EXIT_FAILURE);
-        }
-
-        if (ret != 1) {
-            fprintf(stderr, "[%s] Error: sent %d bytes (expected 1)\n", __func__, ret);
-            exit(EXIT_FAILURE);
+        if (ret == 0)
+        {
+            printf("[%s] written %d bytes\n", __func__, total);
+            return;
         }
 
         /* write to file */
-        ret = write(file, &buf, 1);
+        wr = write(file, buf, ret);
 
-        if (ret < 0) {
+        if (ret != wr)
+        {
             perror("write() error");
             exit(EXIT_FAILURE);
         }
-
-        if (ret != 1) {
-            fprintf(stderr, "[%s] Error: %d bytes written (expected 1)", __func__, ret);
-            exit(EXIT_FAILURE);
-        }
+        total += wr;
     }
-
-    printf("[%s] written %d bytes\n", __func__, FILE_SIZE);
 }
 
 void client_start(const char *ipv4_srv, unsigned short port_srv)
@@ -64,14 +59,16 @@ void client_start(const char *ipv4_srv, unsigned short port_srv)
     struct sockaddr_in addr_srv;
 
     /* file init */
-    file = open(CLIENT_FILE, O_RDWR|O_CREAT|O_DSYNC, 0666);
-    if (file < 0) {
+    file = open(CLIENT_FILE, O_RDWR | O_CREAT | O_DSYNC, 0666);
+    if (file < 0)
+    {
         perror("Error opening file");
         exit(EXIT_FAILURE);
     }
 
     /* socket init */
-    if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+    if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+    {
         perror("Error creating client socket");
         exit(EXIT_FAILURE);
     }
@@ -81,7 +78,8 @@ void client_start(const char *ipv4_srv, unsigned short port_srv)
     addr_srv.sin_addr.s_addr = inet_addr(ipv4_srv);
     addr_srv.sin_port = htons(port_srv);
 
-    if (connect(sock, (struct sockaddr *) &addr_srv, sizeof(addr_srv)) < 0) {
+    if (connect(sock, (struct sockaddr *)&addr_srv, sizeof(addr_srv)) < 0)
+    {
         perror("connect() error");
         exit(EXIT_FAILURE);
     }
