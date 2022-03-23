@@ -20,7 +20,7 @@
 #define FILE_SIZE (1 << 30) /* 1 GB */
 #endif
 
-static void srv_send(int sock, int file)
+static void srv_send(int pipe, FILE *file)
 {
     ssize_t ret;
     char buf[1024];
@@ -28,7 +28,7 @@ static void srv_send(int sock, int file)
 
     while (true)
     {
-        ret = read(file, buf, 1024);
+        ret = fread(buf, sizeof(char), 1024, file);
         i += ret;
 
         if (ret == 0)
@@ -43,75 +43,28 @@ static void srv_send(int sock, int file)
             exit(EXIT_FAILURE);
         }
 
-        if (send(sock, buf, ret, 0) != ret)
+        if (write(pipe, buf, ret) != ret)
         {
-            perror("send() error");
+            perror("write() error");
             exit(EXIT_FAILURE);
         }
     }
 }
 
-void srv_start(const unsigned short port_srv)
+void srv_start(int pipe)
 {
-    int file;
-    int sock_srv, sock_client;
-    struct sockaddr_in addr_srv, addr_client;
-    unsigned int addrlen_client;
+    FILE *file;
 
     /* file init */
-    file = open(SRV_FILE, O_RDONLY | O_DSYNC, 0);
-    if (file < 0)
+    file = fopen(SRV_FILE, "r");
+    if (file == NULL)
     {
         perror("Error opening file");
         exit(EXIT_FAILURE);
     }
 
-    /* socket init */
-    if ((sock_srv = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
-    {
-        perror("Error creating server socket");
-        exit(EXIT_FAILURE);
-    }
-
-    memset(&addr_srv, 0, sizeof(addr_srv));
-    addr_srv.sin_family = AF_INET;
-    addr_srv.sin_addr.s_addr = htonl(INADDR_ANY);
-    addr_srv.sin_port = htons(port_srv);
-
-    /* Allows this process to bind to a port which remains in TIME_WAIT. So if this
-     * process is run again, the user doesn't have to wait for a timeout */
-    if (setsockopt(sock_srv, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
-    {
-        perror("SO_REUSEADDR failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if (bind(sock_srv, (struct sockaddr *)&addr_srv, sizeof(addr_srv)) < 0)
-    {
-        perror("bind() error");
-        exit(EXIT_FAILURE);
-    }
-
-    if (listen(sock_srv, MAX_SIMULT_CONNECTIONS) < 0)
-    {
-        perror("listen() error");
-        exit(EXIT_FAILURE);
-    }
-
-    addrlen_client = sizeof(addr_client);
-
-    /* wait for a client to connect */
-    if ((sock_client = accept(sock_srv, (struct sockaddr *)&addr_client, &addrlen_client)) < 0)
-    {
-        perror("accept() error");
-        exit(EXIT_FAILURE);
-    }
-    printf("[%s] %s connected\n", __func__, inet_ntoa(addr_client.sin_addr));
-
     /* client connected */
-    srv_send(sock_client, file);
+    srv_send(pipe, file);
 
-    close(sock_srv);
-    close(sock_client);
-    close(file);
+    fclose(file);
 }

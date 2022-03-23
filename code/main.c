@@ -13,21 +13,20 @@
 #include "server.h"
 #include "client.h"
 
-#define IPV4_SRV "127.0.0.1"
-#define PORT 12345
-
 #ifndef FILE_SIZE
 #define FILE_SIZE (1 << 30) /* 1 GB */
 #endif
 
 static void time_diff(const struct timespec *start, const struct timespec *end, struct timespec *diff)
 {
-    if ((end->tv_nsec - start->tv_nsec) < 0) {
+    if ((end->tv_nsec - start->tv_nsec) < 0)
+    {
         diff->tv_sec = end->tv_sec - start->tv_sec - 1;
         diff->tv_nsec = 1E9 + end->tv_nsec - start->tv_nsec;
     }
 
-    else {
+    else
+    {
         diff->tv_sec = end->tv_sec - start->tv_sec;
         diff->tv_nsec = end->tv_nsec - start->tv_nsec;
     }
@@ -55,26 +54,47 @@ int main(int argc, char *argv[])
     struct timespec start, end, diff;
 
     /* arg parsing */
-    if (argc != 1) {
+    if (argc != 1)
+    {
         fprintf(stderr, "Usage:  %s\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 
+    int fd[2];
+    if (pipe(fd) != 0)
+    {
+        fprintf(stderr, "Invalid pipe creation");
+        exit(EXIT_FAILURE);
+    }
+
     /* create server and client */
     pid = fork();
 
-    if (pid) {
-        srv_start(PORT);
+    if (pid < 0)
+    {
+        fprintf(stderr, "Fork error");
+        close(fd[0]);
+        close(fd[1]);
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid)
+    {
+        close(fd[0]);
+        srv_start(fd[1]);
+        close(fd[1]);
 
         /* wait for client to complete its task */
-        if (waitpid(pid, &status_client, 0) < 0) {
+        if (waitpid(pid, &status_client, 0) < 0)
+        {
             perror("waitpid() error");
             exit(EXIT_FAILURE);
         }
 
-        if (status_client != EXIT_SUCCESS) {
+        if (status_client != EXIT_SUCCESS)
+        {
             fprintf(stderr, "[%s] Client exited with status %d\n", __func__, status_client);
             exit(EXIT_FAILURE);
         }
@@ -85,7 +105,11 @@ int main(int argc, char *argv[])
         time_report(&diff);
     }
     else
-        client_start(IPV4_SRV, PORT);
+    {
+        close(fd[1]);
+        client_start(fd[0]);
+        close(fd[0]);
+    }
 
     return EXIT_SUCCESS;
 }
